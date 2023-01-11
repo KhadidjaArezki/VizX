@@ -1,6 +1,7 @@
 {
   "name": "VizX",
   "version": "0.0.1",
+  "type": "module",
   "description": "Execution Visualization Tool",
   "scripts": {
     "build": "webpack --mode=production",
@@ -20,6 +21,7 @@
   },
   "dependencies": {
     "core-js": "^3.26.1",
+    "esprima": "^4.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "regenerator-runtime": "^0.13.11"

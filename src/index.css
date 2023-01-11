@@ -1,4 +1,16 @@
 /* Put your styles here*/
 .container {
-  background-color: blanchedalmond;
+  padding: 10px;
+  max-width: 70%;
+}
+.code {
+  background-color: aliceblue;
+  border: black 1px solid;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.console {
+  border: black 1px solid;
+  margin: 10px 0 10px 0;
+  background-color: white;
 }
