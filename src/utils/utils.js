@@ -127,3 +127,5 @@ function main() {
 
 // main()
 // console.log(ast.body.map((token) => console.log(token.type)))
+
+console.log(esprima.parseScript(programScript))
