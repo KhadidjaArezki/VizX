@@ -2,10 +2,11 @@
   "name": "VizX",
   "version": "0.0.1",
   "type": "module",
-  "description": "Execution Visualization Tool",
+  "description": "Execution Visualization Tool for a Functional Subset of JS",
   "scripts": {
     "build": "webpack --mode=production",
-    "start": "webpack serve --mode=development"
+    "dev": "webpack serve --mode=development",
+    "start": "webpack serve --mode=production"
   },
   "license": "MIT",
   "devDependencies": {

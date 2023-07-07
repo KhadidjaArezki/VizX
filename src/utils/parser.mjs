@@ -9,74 +9,147 @@ function addOne (x) {
 var foo = "a"
 y = 1
 console.log('hello world')
-const bar = [{baz: true}]
+const bar = [{baz: true}, [1,2,3], 42]
 
 function addTwo (x) {
   return x + 2
 }`
-
-function parseLiteral(variableValueObj) {
-  return variableValueObj.value
+// TODO
+function getExpType(exp) {
+  // write a switch statement for exp.type and return appropriate type
 }
 
-function getVariableValue(variableValueObj) {
+function parseExp(exp) {
+  // write a switch statement and call appropriate parser of type
+}
+///////////////////////////////
+
+function getLiteralValue(literal) {
+  return literal.value
+}
+function parseArray(elements) {
+  const parsedElements = []
+  elements.forEach((element) => {
+    const parsedElement = {
+      type: element.type,
+    }
+    parsedElement.identifier = element.key.name
+    // TODO: parse each element by type
+    parsedElements.push(parsedElement)
+  })
+  return parsedElements
+}
+function parseObject(properties) {
+  const parsedProperties = []
+  properties.forEach((p) => {
+    const parsedProperty = {
+      type: p.value.type,
+    }
+    parsedProperty.identifier = p.key.name
+    // TODO: parse each property by type
+    parsedProperties.push(parsedProperty)
+  })
+  return parsedProperties
+}
+
+// This should lookup already parsed variables in env
+// TODO: replace this with return env[variable]
+function getVariable(variableObj) {
   let value = null
-  switch (variableValueObj.type) {
+  switch (variableObj.type) {
     case "Literal":
-      value = parseLiteral(variableValueObj)
+      value = getLiteralValue(variableObj)
       break
     case "ArrayExpression":
-      value = parseArray(variableValueObj.elements)
+      value = getArrayValue(variableObj.elements)
       break
     case "ObjectExpression":
-      value = parseObject(variableValueObj.properties)
+      value = getObjectValue(variableObj.properties)
       break
     case "FunctionExpression" ||
       "FunctionDeclaration" ||
       "ArrowFunctionExpression":
-      value = parseFunction(variableValueObj)
+      value = getFunctionValue(variableObj)
+      break
+    case "VariableDeclaration":
+      value = getVariable(variableObj)
       break
   }
   return value
 }
+
+function parseVariableDeclarations(
+  node,
+  meta,
+  programScript,
+  env = {},
+  varsScript = ""
+) {
+  let declarations = node.declarations
+  declarations.forEach((d) => {
+    const declarationsData = declarations[declarations.length - 1].init
+    let newVar = {
+      start: meta.start.offset,
+      end: meta.end.offset,
+      keyword: node.kind,
+      identifier: d.id.name,
+      ...declarations[declarations.length - 1].init,
+      // type: declarationsData.type,
+    }
+    // const varType = declarations[declarations.length - 1].init.type
+    // switch (newVar.type) {
+    //   case "Literal":
+    //     newVar = {
+    //       ...newVar,
+    //       ...declarationsData.value,
+    //     }
+    //     break
+    //   case "ArrayExpression":
+    //     newVar = {
+    //       ...newVar,
+    //       ...parseArray(declarationsData.elements),
+    //     }
+    //     break
+    //   case "ObjectExpression":
+    //     newVar = {
+    //       ...newVar,
+    //       ...parseObject(declarationsData.properties),
+    //     }
+    //     break
+    //   // TODO: Complete remaining cases
+    // }
+    // SIDE EFFECTS!!!
+    env[newVar.identifier] = newVar
+    const varDeclarationScript = `${programScript.substring(
+      newVar.start,
+      newVar.end
+    )}\n`
+    varsScript += varDeclarationScript
+  })
+  return [env, varsScript]
+}
+
 // State
-let globals = []
+let globals = {}
 let globalsScript = ""
 
 const AST = esprima.parseScript(
   programScript,
   { comment: true },
   function (node, meta) {
-    if (node.type === "VariableDeclaration") {
-      // Put logic for parsing variables in parseVariables
-      let declarations = node.declarations
-      declarations.forEach((d) => {
-        let newGlobal = {
-          start: meta.start.offset,
-          end: meta.end.offset,
-          keyword: node.kind,
-          identifier: d.id.name,
-          // type: declarations[declarations.length - 1].init.type,
-          ...declarations[declarations.length - 1].init,
-        }
-        let newGlobalValueObj = {
-          ...declarations[declarations.length - 1].init,
-        }
-        // SIDE EFFECTS!!!
-        globals.push(newGlobal)
-        const gDeclarationScript = `${programScript.substring(
-          globals[0].start,
-          globals[0].end
-        )}\n`
-        globalsScript += gDeclarationScript
-      })
+    switch (node.type) {
+      case "VariableDeclaration":
+        ;[globals, globalsScript] = parseVariableDeclarations(
+          node,
+          meta,
+          programScript,
+          globals,
+          globalsScript
+        )
+        break
+      // TODO: Complete remaining cases
     }
   }
 )
 
-// console.log(globals)
-console.log(
-  globals[3].elements.forEach((e) => {
-    console.log(e)
-  })
-)
+console.log(globals.bar.elements[0].properties[0])
