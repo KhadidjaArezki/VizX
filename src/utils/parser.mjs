@@ -7,22 +7,41 @@ function addOne (x) {
   return x + 1
 }
 var foo = "a"
+var n = null
+var d = undefined
 y = 1
 console.log('hello world')
-const bar = [{baz: true}, [1,2,3], 42]
+const bar = [{baz: true, arr: [1,2,3]}, 42]
 
 function addTwo (x) {
   return x + 2
 }`
-// TODO
+
 function getExpType(exp) {
-  // write a switch statement for exp.type and return appropriate type
+  if (exp.type === "Literal") {
+    if (exp.value === null) return "null"
+    else return typeof exp.value
+  } else if (exp.type === "Identifier") return "undefined"
+  else return exp.type
 }
 
 function parseExp(exp) {
   // write a switch statement and call appropriate parser of type
+  switch (exp.type) {
+    case "Literal":
+      exp.value
+      break
+    case "ArrayExpression":
+      parseArray(exp.elements)
+      break
+    case "ObjectExpression":
+      parseObject(exp.properties)
+      break
+    // TODO: Complete remaining expressions
+    default:
+      break
+  }
 }
-///////////////////////////////
 
 function getLiteralValue(literal) {
   return literal.value
@@ -31,9 +50,9 @@ function parseArray(elements) {
   const parsedElements = []
   elements.forEach((element) => {
     const parsedElement = {
-      type: element.type,
+      type: getExpType(element),
+      value: parseExp(element),
     }
-    parsedElement.identifier = element.key.name
     // TODO: parse each element by type
     parsedElements.push(parsedElement)
   })
@@ -43,9 +62,10 @@ function parseObject(properties) {
   const parsedProperties = []
   properties.forEach((p) => {
     const parsedProperty = {
-      type: p.value.type,
+      type: getExpType(p.value),
+      identifier: p.key.name,
+      value: parseExp(p.value),
     }
-    parsedProperty.identifier = p.key.name
     // TODO: parse each property by type
     parsedProperties.push(parsedProperty)
   })
@@ -94,8 +114,10 @@ function parseVariableDeclarations(
       keyword: node.kind,
       identifier: d.id.name,
       ...declarations[declarations.length - 1].init,
-      // type: declarationsData.type,
+      type: getExpType({ ...declarationsData }),
+      value: parseExp({ ...declarationsData }), // Recursively parse expression
     }
+    // TODO: REMOVE THIS BLOCK
     // const varType = declarations[declarations.length - 1].init.type
     // switch (newVar.type) {
     //   case "Literal":
@@ -152,4 +174,9 @@ const AST = esprima.parseScript(
   }
 )
 
-console.log(globals.bar.elements[0].properties[0])
+// console.log(globals)
+globals.bar.elements.forEach((e) => {
+  if (e.type === "ObjectExpression") console.log(e.properties)
+  else console.log(e)
+})
+// console.log(globals.bar.elements[1].elements.forEach((e) => console.log(e)))
