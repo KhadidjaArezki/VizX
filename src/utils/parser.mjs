@@ -11,11 +11,26 @@ var n = null
 var d = undefined
 y = 1
 console.log('hello world')
+const arr = [1,2,3]
 const bar = [{baz: true, arr: [1,2,3]}, 42]
 
 function addTwo (x) {
   return x + 2
-}`
+}
+addOne(1)`
+
+/**
+ * A program is a script that is parsed and then evaluated.
+ * A script is parsed into an AST where each node represents a valid JS expression.
+ * Certain AST nodes have children while some don't.
+ * The program is evaluated by recursively calling eval on every node in the program AST with env.
+ * A global env is created by parsing variables and functions and adding them to an object.
+ * An env is created at time of evaluation.
+ * A function expression is stored with it's env as a pair.
+ * A function call is evaluated under the env in which it was defined extended by function
+    params and function name if it was not anonymous.
+ * Should I create a new AST or evaluate the one made by Prisma?
+ */
 
 function getExpType(exp) {
   if (exp.type === "Literal") {
@@ -27,25 +42,33 @@ function getExpType(exp) {
 
 function parseExp(exp) {
   // write a switch statement and call appropriate parser of type
+  let parsedExp = null
   switch (exp.type) {
     case "Literal":
-      exp.value
+      parsedExp = exp.value
+      break
+    case "Identifier":
+      parsedExp = undefined
       break
     case "ArrayExpression":
-      parseArray(exp.elements)
+      parsedExp = parseArray(exp.elements)
       break
     case "ObjectExpression":
-      parseObject(exp.properties)
+      parsedExp = parseObject(exp.properties)
       break
     // TODO: Complete remaining expressions
+    case "FunctionExpression":
+      break
+    case "ArrowFunctionExpression":
+      break
+    case "FunctionDeclaration":
+      break
     default:
       break
   }
+  return parsedExp
 }
 
-function getLiteralValue(literal) {
-  return literal.value
-}
 function parseArray(elements) {
   const parsedElements = []
   elements.forEach((element) => {
@@ -53,11 +76,12 @@ function parseArray(elements) {
       type: getExpType(element),
       value: parseExp(element),
     }
-    // TODO: parse each element by type
+    // DONE: parse each element by type
     parsedElements.push(parsedElement)
   })
   return parsedElements
 }
+
 function parseObject(properties) {
   const parsedProperties = []
   properties.forEach((p) => {
@@ -66,39 +90,19 @@ function parseObject(properties) {
       identifier: p.key.name,
       value: parseExp(p.value),
     }
-    // TODO: parse each property by type
+    // DONE: parse each property by type
     parsedProperties.push(parsedProperty)
   })
   return parsedProperties
 }
 
-// This should lookup already parsed variables in env
-// TODO: replace this with return env[variable]
-function getVariable(variableObj) {
-  let value = null
-  switch (variableObj.type) {
-    case "Literal":
-      value = getLiteralValue(variableObj)
-      break
-    case "ArrayExpression":
-      value = getArrayValue(variableObj.elements)
-      break
-    case "ObjectExpression":
-      value = getObjectValue(variableObj.properties)
-      break
-    case "FunctionExpression" ||
-      "FunctionDeclaration" ||
-      "ArrowFunctionExpression":
-      value = getFunctionValue(variableObj)
-      break
-    case "VariableDeclaration":
-      value = getVariable(variableObj)
-      break
-  }
-  return value
+function getVariable(variable, env) {
+  if (env.hasOwnProperty(variable)) {
+    return env[variable]
+  } else return undefined
 }
 
-function parseVariableDeclarations(
+function parseVariableDeclaration(
   node,
   meta,
   programScript,
@@ -113,33 +117,11 @@ function parseVariableDeclarations(
       end: meta.end.offset,
       keyword: node.kind,
       identifier: d.id.name,
-      ...declarations[declarations.length - 1].init,
+      //...declarations[declarations.length - 1].init,
       type: getExpType({ ...declarationsData }),
       value: parseExp({ ...declarationsData }), // Recursively parse expression
     }
-    // TODO: REMOVE THIS BLOCK
-    // const varType = declarations[declarations.length - 1].init.type
-    // switch (newVar.type) {
-    //   case "Literal":
-    //     newVar = {
-    //       ...newVar,
-    //       ...declarationsData.value,
-    //     }
-    //     break
-    //   case "ArrayExpression":
-    //     newVar = {
-    //       ...newVar,
-    //       ...parseArray(declarationsData.elements),
-    //     }
-    //     break
-    //   case "ObjectExpression":
-    //     newVar = {
-    //       ...newVar,
-    //       ...parseObject(declarationsData.properties),
-    //     }
-    //     break
-    //   // TODO: Complete remaining cases
-    // }
+
     // SIDE EFFECTS!!!
     env[newVar.identifier] = newVar
     const varDeclarationScript = `${programScript.substring(
@@ -161,7 +143,7 @@ const AST = esprima.parseScript(
   function (node, meta) {
     switch (node.type) {
       case "VariableDeclaration":
-        ;[globals, globalsScript] = parseVariableDeclarations(
+        ;[globals, globalsScript] = parseVariableDeclaration(
           node,
           meta,
           programScript,
@@ -174,9 +156,11 @@ const AST = esprima.parseScript(
   }
 )
 
-// console.log(globals)
-globals.bar.elements.forEach((e) => {
-  if (e.type === "ObjectExpression") console.log(e.properties)
-  else console.log(e)
-})
+console.log(globals)
+//const bar = [{baz: true, arr: [1,2,3]}, 42]
+// globals.bar.value.forEach((e) => {
+//   if (e.type === "ObjectExpression") console.log(e.properties)
+//   if (e.type === "ArrayExpression") console.log(e.elements)
+//   else console.log(e)
+// })
 // console.log(globals.bar.elements[1].elements.forEach((e) => console.log(e)))
