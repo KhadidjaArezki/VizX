@@ -40,21 +40,34 @@ function getExpType(exp) {
   else return exp.type
 }
 
-function parseExp(exp) {
+function parseExp(exp, meta, programScript) {
   // write a switch statement and call appropriate parser of type
-  let parsedExp = null
+  let parsedExp = {
+    start: meta.start.offset,
+    end: meta.end.offset,
+    type: getExpType(exp),
+  }
+  parsedExp.script = getExpScript(programScript, parsedExp.start, parsedExp.end)
+
   switch (exp.type) {
     case "Literal":
-      parsedExp = exp.value
+      parsedExp.value = exp.value
       break
     case "Identifier":
-      parsedExp = undefined
+      parsedExp.value = undefined
       break
     case "ArrayExpression":
-      parsedExp = parseArray(exp.elements)
+      parsedExp.children = parseArray(exp.elements, meta, programScript)
       break
     case "ObjectExpression":
-      parsedExp = parseObject(exp.properties)
+      parsedExp.children = parseObject(exp.properties, meta, programScript)
+      break
+    case "VariableDeclaration":
+      const vars = parseVariableDeclaration(exp, meta, programScript)
+      parsedExp = vars.map((v) => ({
+        ...parsedExp,
+        ...v,
+      }))
       break
     // TODO: Complete remaining expressions
     case "FunctionExpression":
@@ -69,12 +82,12 @@ function parseExp(exp) {
   return parsedExp
 }
 
-function parseArray(elements) {
+function parseArray(elements, meta, programScript) {
   const parsedElements = []
   elements.forEach((element) => {
     const parsedElement = {
       type: getExpType(element),
-      value: parseExp(element),
+      value: parseExp(element, meta, programScript),
     }
     // DONE: parse each element by type
     parsedElements.push(parsedElement)
@@ -82,13 +95,13 @@ function parseArray(elements) {
   return parsedElements
 }
 
-function parseObject(properties) {
+function parseObject(properties, meta, programScript) {
   const parsedProperties = []
   properties.forEach((p) => {
     const parsedProperty = {
       type: getExpType(p.value),
       identifier: p.key.name,
-      value: parseExp(p.value),
+      value: parseExp(p.value, meta, programScript),
     }
     // DONE: parse each property by type
     parsedProperties.push(parsedProperty)
@@ -96,67 +109,56 @@ function parseObject(properties) {
   return parsedProperties
 }
 
-function getVariable(variable, env) {
-  if (env.hasOwnProperty(variable)) {
-    return env[variable]
-  } else return undefined
-}
-
-function parseVariableDeclaration(
-  node,
-  meta,
-  programScript,
-  env = {},
-  varsScript = ""
-) {
+function parseVariableDeclaration(node, meta, programScript) {
+  const vars = []
   let declarations = node.declarations
   declarations.forEach((d) => {
     const declarationsData = declarations[declarations.length - 1].init
     let newVar = {
-      start: meta.start.offset,
-      end: meta.end.offset,
       keyword: node.kind,
       identifier: d.id.name,
-      //...declarations[declarations.length - 1].init,
-      type: getExpType({ ...declarationsData }),
-      value: parseExp({ ...declarationsData }), // Recursively parse expression
+      // type: getExpType({ ...declarationsData }),
+      value: parseExp({ ...declarationsData }, meta, programScript), // Recursively parse expression
     }
-
-    // SIDE EFFECTS!!!
-    env[newVar.identifier] = newVar
-    const varDeclarationScript = `${programScript.substring(
-      newVar.start,
-      newVar.end
-    )}\n`
-    varsScript += varDeclarationScript
+    vars.push(newVar)
   })
-  return [env, varsScript]
+  return vars
+}
+
+function addVarToEnv(newVar, env) {
+  env[newVar.identifier] = newVar
+  return env
+}
+
+function getVariable(variable, env) {
+  if (env.hasOwnProperty(variable)) {
+    return env[variable]
+  } else return undefined // or raise error?
+}
+
+function getExpScript(programScript, start, end) {
+  const expScript = `${programScript.substring(start, end)}\n`
+  return expScript
 }
 
 // State
 let globals = {}
-let globalsScript = ""
+const AST = {
+  start: 0,
+  // end: ,
+  script: programScript,
+  type: "program",
+  children: [],
+}
 
-const AST = esprima.parseScript(
-  programScript,
-  { comment: true },
-  function (node, meta) {
-    switch (node.type) {
-      case "VariableDeclaration":
-        ;[globals, globalsScript] = parseVariableDeclaration(
-          node,
-          meta,
-          programScript,
-          globals,
-          globalsScript
-        )
-        break
-      // TODO: Complete remaining cases
-    }
-  }
-)
+esprima.parseScript(programScript, { comment: true }, function (node, meta) {
+  const childNode = parseExp(node, meta, programScript)
+  if (Array.isArray(childNode)) {
+    AST.children.push(...childNode)
+  } else AST.children.push(childNode)
+})
 
-console.log(globals)
+console.log(AST)
 //const bar = [{baz: true, arr: [1,2,3]}, 42]
 // globals.bar.value.forEach((e) => {
 //   if (e.type === "ObjectExpression") console.log(e.properties)
