@@ -1,6 +1,6 @@
 ## VizX
 
-A Javascript code execution visualization tool
+A code execution visualization tool - under construction - for a subset of Javascript
 
 #### Start a local server
 

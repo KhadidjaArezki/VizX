@@ -18,6 +18,8 @@ function addTwo (x) {
   return x + 2
 }
 addOne(1)`
+// TODO: Current parsing logic does not keep track of each exp's script. We might need that.
+//       change the code in esprima.parseScript to somehow look up script for each exp.
 
 /**
  * A program is a script that is parsed and then evaluated.
@@ -32,6 +34,10 @@ addOne(1)`
  * Should I create a new AST or evaluate the one made by Prisma?
  */
 
+function printAst(ast) {
+  console.log(JSON.stringify(ast, null, 4))
+}
+
 function getExpType(exp) {
   if (exp.type === "Literal") {
     if (exp.value === null) return "null"
@@ -41,26 +47,25 @@ function getExpType(exp) {
 }
 
 function parseExp(exp, meta, programScript) {
-  // write a switch statement and call appropriate parser of type
   let parsedExp = {
     start: meta.start.offset,
     end: meta.end.offset,
     type: getExpType(exp),
   }
-  parsedExp.script = getExpScript(programScript, parsedExp.start, parsedExp.end)
+  // parsedExp.script = getExpScript(programScript, parsedExp.start, parsedExp.end)
 
   switch (exp.type) {
     case "Literal":
       parsedExp.value = exp.value
       break
     case "Identifier":
-      parsedExp.value = undefined
+      parsedExp.name = exp.name
       break
     case "ArrayExpression":
-      parsedExp.children = parseArray(exp.elements, meta, programScript)
+      parsedExp.elements = parseArray(exp.elements, meta, programScript)
       break
     case "ObjectExpression":
-      parsedExp.children = parseObject(exp.properties, meta, programScript)
+      parsedExp.properties = parseObject(exp.properties, meta, programScript)
       break
     case "VariableDeclaration":
       const vars = parseVariableDeclaration(exp, meta, programScript)
@@ -69,14 +74,50 @@ function parseExp(exp, meta, programScript) {
         ...v,
       }))
       break
-    // TODO: Complete remaining expressions
+    case "BlockStatement":
+      parsedExp.body = exp.body.map((e) => parseExp(e, meta, programScript))
+      break
+    case "ReturnStatement":
+      parsedExp.body = parseExp(exp.argument, meta, programScript)
+      break
+    case "BinaryExpression":
+      parsedExp.operator = exp.operator
+      parsedExp.left = parseExp(exp.left, meta, programScript)
+      parsedExp.right = parseExp(exp.right, meta, programScript)
+      break
+    case "AssignmentExpression":
+      parsedExp.operator = exp.operator
+      parsedExp.left = parseExp(exp.left, meta, programScript)
+      parsedExp.right = parseExp(exp.right, meta, programScript)
+      break
+    case "ExpressionStatement":
+      parsedExp.expression = parseExp(exp.expression, meta, programScript)
+      break
+    case "CallExpression":
+      parsedExp.callee = parseExp(exp.callee, meta, programScript)
+      parsedExp.arguments = exp.arguments.map((a) =>
+        parseExp(a, meta, programScript)
+      )
+      break
+    case "MemberExpression":
+      parsedExp.object = parseExp(exp.object, meta, programScript)
+      parsedExp.property = parseExp(exp.property, meta, programScript)
+      break
+    case "FunctionDeclaration":
+      parsedExp.identifier = exp.id.name
+      parsedExp.params = exp.params.map((p) => p.name)
+      parsedExp.body = parseExp(exp.body, meta, programScript)
+      parsedExp.isAsync = exp.async
+      parsedExp.isGenerator = exp.generator
+      break
     case "FunctionExpression":
       break
     case "ArrowFunctionExpression":
       break
-    case "FunctionDeclaration":
-      break
+    // TODO: Complete remaining expressions
     default:
+      // console.log(exp)
+      parsedExp = {}
       break
   }
   return parsedExp
@@ -89,7 +130,6 @@ function parseArray(elements, meta, programScript) {
       type: getExpType(element),
       value: parseExp(element, meta, programScript),
     }
-    // DONE: parse each element by type
     parsedElements.push(parsedElement)
   })
   return parsedElements
@@ -103,7 +143,6 @@ function parseObject(properties, meta, programScript) {
       identifier: p.key.name,
       value: parseExp(p.value, meta, programScript),
     }
-    // DONE: parse each property by type
     parsedProperties.push(parsedProperty)
   })
   return parsedProperties
@@ -152,13 +191,19 @@ const AST = {
 }
 
 esprima.parseScript(programScript, { comment: true }, function (node, meta) {
-  const childNode = parseExp(node, meta, programScript)
-  if (Array.isArray(childNode)) {
-    AST.children.push(...childNode)
-  } else AST.children.push(childNode)
+  // if (node.type !== "Identifier" && node.type !== "VariableDeclarator") {
+  if (node.type === "Program") {
+    node.body.forEach((c) => {
+      const childNode = parseExp(c, meta, programScript)
+      if (Array.isArray(childNode)) {
+        // SIDE EFFECTS!!!
+        AST.children.push(...childNode)
+      } else Object.keys(childNode).length !== 0 && AST.children.push(childNode)
+    })
+  }
 })
 
-console.log(AST)
+printAst(AST)
 //const bar = [{baz: true, arr: [1,2,3]}, 42]
 // globals.bar.value.forEach((e) => {
 //   if (e.type === "ObjectExpression") console.log(e.properties)
